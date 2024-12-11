@@ -49,3 +49,15 @@ gym.register(
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_camera_ppo_cfg.yaml",
     },
 )
+
+# RVMod: Adding Double Cartpole environment
+# Run via: ./isaaclab.sh -p source/standalone/workflows/sb3/train.py --task Isaac-Double-Cartpole-Direct-v0 --num_envs 64 --headless --video
+gym.register(
+    id="Isaac-Double-Cartpole-Direct-v0",
+    entry_point=f"{__name__}.double_cartpole_env:DoubleCartpoleEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.double_cartpole_env:DoubleCartpoleEnvCfg",
+        "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
+    }
+)
