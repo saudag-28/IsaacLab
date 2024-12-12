@@ -21,6 +21,8 @@ from omni.isaac.lab.utils import configclass
 from omni.isaac.lab.utils.math import sample_uniform
 
 
+# holds settings for the simulation parameters, the scene, the actors and the task. This class
+# also defines the number of actions and observations for the environment.
 @configclass
 class DoubleCartpoleEnvCfg(DirectRLEnvCfg):
     # env
@@ -38,7 +40,7 @@ class DoubleCartpoleEnvCfg(DirectRLEnvCfg):
     robot_cfg: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     robot_cfg.init_state.pos = (-0.3, 0, 1.5)
     robot_cfg2: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="/World/envs/env_.*/Robot2")
-    robot_cfg.init_state.pos = (0.3, 0, 2.5)
+    robot_cfg2.init_state.pos = (0.3, 0, 2.5)
     cart_dof_name = "slider_to_cart"
     pole_dof_name = "cart_to_pole"
 
