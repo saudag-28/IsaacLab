@@ -3,11 +3,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import math
-
-from omni.isaac.lab.envs import DirectRLEnvCfg
+import omni.isaac.lab.envs.mdp as mdp
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.assets import ArticulationCfg
+from omni.isaac.lab.envs import DirectMARLEnvCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.scene import InteractiveSceneCfg
@@ -16,40 +15,49 @@ from omni.isaac.lab.sim import SimulationCfg
 from omni.isaac.lab.terrains import TerrainImporterCfg
 from omni.isaac.lab.utils import configclass
 
-import omni.isaac.lab.envs.mdp as mdp
-from omni.isaac.lab.utils.assets import ISAACLAB_NUCLEUS_DIR
+##
+# Pre-defined configs
+##
+from omni.isaac.lab_assets.anymal import ANYMAL_C_CFG  # isort: skip
+from omni.isaac.lab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 
 
 @configclass
 class EventCfg:
-    """Configuration for events."""
+    """Configuration for randomization."""
 
-    reset_base = EventTerm(
-        func=mdp.reset_root_state_uniform,
-        mode="reset",
+    physics_material = EventTerm(
+        func=mdp.randomize_rigid_body_material,
+        mode="startup",
         params={
-            "pose_range": {"x": (-0.5, 0.5), "y": (-0.5, 0.5), "yaw": (-3.14, 3.14)},
-            "velocity_range": {
-                "x": (-0.0, 0.0),
-                "y": (-0.0, 0.0),
-                "z": (-0.0, 0.0),
-                "roll": (-0.0, 0.0),
-                "pitch": (-0.0, 0.0),
-                "yaw": (-0.0, 0.0),
-            },
+            "asset_cfg": SceneEntityCfg("robot1", body_names=".*"),
+            "static_friction_range": (0.8, 0.8),
+            "dynamic_friction_range": (0.6, 0.6),
+            "restitution_range": (0.0, 0.0),
+            "num_buckets": 64,
         },
     )
 
-@configclass
-class NavigationEnvCfg(DirectRLEnvCfg):
-    """Configuration for the direct navigation environment."""
+    add_base_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="startup",
+        params={
+            "asset_cfg": SceneEntityCfg("robot1", body_names="base"),
+            "mass_distribution_params": (-5.0, 5.0),
+            "operation": "add",
+        },
+    )
 
+
+@configclass
+class AnymalCFlatEnvCfg(DirectMARLEnvCfg):
     # env
-    episode_length_s = 8.0
-    decimation = 4 # TODO: not sure
-    action_scale = 0.5 # TODO: not sure
-    action_space = 12 # TODO: not sure
-    observation_space = 48 # TODO: not sure
+    episode_length_s = 20.0
+    possible_agents = ["robot1", "robot2"]
+    action_spaces = {"robot1": 12, "robot2": 12}
+    observation_spaces = {"robot1": 48, "robot2": 48}
+    decimation = 4
+    action_scale = 0.5
     state_space = 0
 
     # simulation
@@ -79,98 +87,41 @@ class NavigationEnvCfg(DirectRLEnvCfg):
         debug_vis=False,
     )
 
-    # scene
-    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=4.0, replicate_physics=True)
-
     # events
-    events: EventCfg = EventCfg()
+    # events: EventCfg = EventCfg()
 
     # robot
-    robot: ArticulationCfg = ANYMAL_C_CFG.replace(prim_path="/World/envs/env_.*/Robot")
-    contact_sensor: ContactSensorCfg = ContactSensorCfg(
-        prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
+    robot1: ArticulationCfg = ANYMAL_C_CFG.replace(prim_path="/World/envs/env_.*/Robot1").replace(
+        init_state=ArticulationCfg.InitialStateCfg(
+            pos=(0.0, 0.0, 0.5),
+            rot=(1.0, 0.0, 0.0, 0.0),
+        )
+    )
+    robot2: ArticulationCfg = ANYMAL_C_CFG.replace(prim_path="/World/envs/env_.*/Robot2").replace(
+        init_state=ArticulationCfg.InitialStateCfg(
+            pos=(0.0, 0.0, 0.5),
+            rot=(1.0, 0.0, 0.0, 0.0),
+        )
     )
 
-    # TODO:reward scales
+    contact_sensor1: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Robot1/.*", history_length=3, update_period=0.005, track_air_time=True
+    )
+    contact_sensor2: ContactSensorCfg = ContactSensorCfg(
+        prim_path="/World/envs/env_.*/Robot2/.*", history_length=3, update_period=0.005, track_air_time=True
+    )
 
-class QuadrupedEnv(DirectRLEnv):
-    cfg : AnymalCFlatEnvCfg
+    # scene
+    scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=1, env_spacing=4.0, replicate_physics=True)
 
-    def __init__(self, cfg : AnymalCFlatEnvCfg, render_mode: str | None = None, **kwargs):
-        super().__init__(cfg, render_mode, **kwargs)
-
-
-    """
-    This function is responsible for creating the scene objects and setting up the scene for the environment.
-    The scene creation can happen through :class:`omni.isaac.lab.scene.InteractiveSceneCfg` or through
-    directly creating the scene objects and registering them with the scene manager.
-    """
-    def _setup_scene(self):
-        self._robot = Articulation(self.cfg.robot)
-        self.scene.articulations["robot"] = self._robot
-        self._contact_sensor = ContactSensor(self.cfg.contact_sensor)
-        self.scene.sensors["contact_sensor"] = self._contact_sensor
-        self.cfg.terrain.num_envs = self.scene.cfg.num_envs
-        self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
-        self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
-        # clone, filter, and replicate
-        self.scene.clone_environments(copy_from_source=False)
-        self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
-        # add lights
-        light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
-        light_cfg.func("/World/Light", light_cfg)
-
-
-    """
-    This function is responsible for pre-processing the actions before stepping through the physics.
-    It is called before the physics stepping (which is decimated).
-
-    Args:
-        actions: The actions to apply on the environment. Shape is (num_envs, action_dim).
-    """
-    def _pre_physics_step(self, actions: torch.Tensor):
-        pre_trained_policy_action: mdp.PreTrainedPolicyActionCfg = mdp.PreTrainedPolicyActionCfg(
-            asset_name="robot",
-            policy_path=f"{ISAACLAB_NUCLEUS_DIR}/Policies/ANYmal-C/Blind/policy.pt",
-            low_level_decimation=4,
-            low_level_actions=cfg.actions.joint_pos,
-            low_level_observations=cfg.observations.policy,
-        )
-        self._actions = actions.clone()
-        self._processed_actions = self.cfg.action_scale * self._actions + pre_trained_policy_action
-
-
-    """
-    This function is responsible for applying the actions to the simulator. It is called at each
-    physics time-step.
-    """
-    def _apply_action(self):
-        
-
-
-    """
-    Compute and return the observations for the environment.
-
-    Returns:
-        The observations for the environment.
-    """
-    def _get_observations(self) -> dict:
-        obs = torch.cat(
-            [
-                tensor
-                for tensor in (
-                    self._robot.data.root_lin_vel_b,
-                    self._robot.data.root_ang_vel_b,
-                    self._robot.data.projected_gravity_b,
-                    self._commands,
-                    self._robot.data.joint_pos - self._robot.data.default_joint_pos,
-                    self._robot.data.joint_vel,
-                    height_data,
-                    self._actions,
-                )
-                if tensor is not None
-            ],
-            dim=-1,
-        )
-        observations = {"policy": obs}
-        return observations
+    # reward scales
+    lin_vel_reward_scale = 1.0
+    yaw_rate_reward_scale = 0.5
+    z_vel_reward_scale = -2.0
+    ang_vel_reward_scale = -0.05
+    joint_torque_reward_scale = -2.5e-5
+    joint_accel_reward_scale = -2.5e-7
+    action_rate_reward_scale = -0.01
+    feet_air_time_reward_scale = 0.5
+    undersired_contact_reward_scale = -1.0
+    flat_orientation_reward_scale = -5.0

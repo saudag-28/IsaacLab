@@ -19,6 +19,7 @@ import argparse
 
 from omni.isaac.lab.app import AppLauncher
 
+
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Tutorial on spawning and interacting with a rigid object.")
 parser.add_argument("--num_envs", type=int, default=2, help="Number of environments to spawn.")
@@ -52,7 +53,7 @@ from omni.isaac.lab.assets import (
     RigidObjectCollection,
     RigidObjectCollectionCfg,
 )
-from omni.isaac.lab.actuators import DCMotorCfg
+from omni.isaac.lab.actuators import DCMotorCfg, ActuatorNetLSTMCfg
 
 ##
 # Pre-defined configs
@@ -60,6 +61,23 @@ from omni.isaac.lab.actuators import DCMotorCfg
 from omni.isaac.lab_assets.anymal import ANYMAL_B_CFG, ANYMAL_C_CFG, ANYMAL_D_CFG  # isort:skip
 from omni.isaac.lab_assets.spot import SPOT_CFG  # isort:skip
 from omni.isaac.lab_assets.unitree import UNITREE_A1_CFG, UNITREE_GO1_CFG, UNITREE_GO2_CFG  # isort:skip
+
+ANYDRIVE_3_SIMPLE_ACTUATOR_CFG = DCMotorCfg(
+    joint_names_expr=[".*HAA", ".*HFE", ".*KFE"],
+    saturation_effort=120.0,
+    effort_limit=80.0,
+    velocity_limit=7.5,
+    stiffness={".*": 40.0},
+    damping={".*": 5.0},
+)
+
+ANYDRIVE_3_LSTM_ACTUATOR_CFG = ActuatorNetLSTMCfg(
+    joint_names_expr=[".*HAA", ".*HFE", ".*KFE"],
+    network_file=f"{ISAACLAB_NUCLEUS_DIR}/ActuatorNets/ANYbotics/anydrive_3_lstm_jit.pt",
+    saturation_effort=120.0,
+    effort_limit=80.0,
+    velocity_limit=7.5,
+)
 
 
 @configclass
@@ -114,7 +132,7 @@ class QuadrupedSceneCfg(InteractiveSceneCfg):
     unitree_go1_robot1 = ArticulationCfg(
                         prim_path="{ENV_REGEX_NS}/Robot1",
                         spawn=sim_utils.UsdFileCfg(
-                            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/Unitree/Go1/go1.usd",
+                            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/ANYbotics/ANYmal-C/anymal_c.usd",
                             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                                     disable_gravity=False,
                                     retain_accelerations=False,
@@ -131,31 +149,21 @@ class QuadrupedSceneCfg(InteractiveSceneCfg):
                         init_state=ArticulationCfg.InitialStateCfg(
                         pos=(-2.0, 0.0, 0.6),
                         joint_pos={
-                            ".*L_hip_joint": 0.1,
-                            ".*R_hip_joint": -0.1,
-                            "F[L,R]_thigh_joint": 0.8,
-                            "R[L,R]_thigh_joint": 1.0,
-                            ".*_calf_joint": -1.5,
+                            ".*HAA": 0.0,  # all HAA
+                            ".*F_HFE": 0.4,  # both front HFE
+                            ".*H_HFE": -0.4,  # both hind HFE
+                            ".*F_KFE": -0.8,  # both front KFE
+                            ".*H_KFE": 0.8,  # both hind KFE
                         },
                         joint_vel={".*": 0.0},
                     ),
                     soft_joint_pos_limit_factor=0.9,
-                        actuators={
-                            "base_legs": DCMotorCfg(
-                                joint_names_expr=[".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"],
-                                effort_limit=33.5,
-                                saturation_effort=33.5,
-                                velocity_limit=21.0,
-                                stiffness=25.0,
-                                damping=0.5,
-                                friction=0.0,
-                            ),
-                        },
+                    actuators={"legs": ANYDRIVE_3_LSTM_ACTUATOR_CFG}
         )
     unitree_go1_robot2 = ArticulationCfg(
                         prim_path="{ENV_REGEX_NS}/Robot2",
                         spawn=sim_utils.UsdFileCfg(
-                            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/Unitree/Go1/go1.usd",
+                            usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Robots/ANYbotics/ANYmal-C/anymal_c.usd",
                             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                                     disable_gravity=False,
                                     retain_accelerations=False,
@@ -173,26 +181,16 @@ class QuadrupedSceneCfg(InteractiveSceneCfg):
                         pos=(2.0, 0.0, 0.6),
                         rot = (0.0, 0.0, 0.0, 1.0),
                         joint_pos={
-                            ".*L_hip_joint": 0.1,
-                            ".*R_hip_joint": -0.1,
-                            "F[L,R]_thigh_joint": 0.8,
-                            "R[L,R]_thigh_joint": 1.0,
-                            ".*_calf_joint": -1.5,
+                            ".*HAA": 0.0,  # all HAA
+                            ".*F_HFE": 0.4,  # both front HFE
+                            ".*H_HFE": -0.4,  # both hind HFE
+                            ".*F_KFE": -0.8,  # both front KFE
+                            ".*H_KFE": 0.8,  # both hind KFE
                         },
                         joint_vel={".*": 0.0},
                     ),
                     soft_joint_pos_limit_factor=0.9,
-                        actuators={
-                            "base_legs": DCMotorCfg(
-                                joint_names_expr=[".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"],
-                                effort_limit=33.5,
-                                saturation_effort=33.5,
-                                velocity_limit=21.0,
-                                stiffness=25.0,
-                                damping=0.5,
-                                friction=0.0,
-                            ),
-                        },
+                    actuators={"legs": ANYDRIVE_3_LSTM_ACTUATOR_CFG}
         )
 
 
