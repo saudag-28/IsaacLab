@@ -63,3 +63,18 @@ gym.register(
         "skrl_mappo_cfg_entry_point": f"{agents.__name__}:skrl_mappo_cfg.yaml",
     },
 )
+
+# RV Mod
+gym.register(
+    id="Isaac-Double-Velocity-Flat-Anymal-C-Direct-v0",
+    entry_point=f"{__name__}.double_anymal_c_env:DoubleAnymalCFlatEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.double_anymal_c_env_cfg:DoubleAnymalCFlatEnvCfg",
+        "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_flat_ppo_cfg.yaml",
+        # "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
+        # "skrl_ippo_cfg_entry_point": f"{agents.__name__}:skrl_ippo_cfg.yaml",
+        # "skrl_mappo_cfg_entry_point": f"{agents.__name__}:skrl_mappo_cfg.yaml",
+    },
+)
+

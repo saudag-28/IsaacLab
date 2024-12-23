@@ -55,7 +55,7 @@ class DoubleCartpoleEnvCfg(DirectRLEnvCfg):
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0
     rew_scale_pole_pos = -1.0
-    rew_scale_cart_vel = -0.01
+    rew_scale_cart_vel = -0.1 # originally -0.01
     rew_scale_pole_vel = -0.005
 
 class SingleAgent:
