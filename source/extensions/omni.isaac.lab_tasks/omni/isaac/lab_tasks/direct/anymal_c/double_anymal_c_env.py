@@ -28,16 +28,19 @@ class SingleAgent:
         self._robot = Articulation(self.robot_cfg)
         self._contact_sensor = ContactSensor(self.contact_cfg)
 
-    def post_setup_scene(self, device: torch.device, single_action_space: gym.Space, step_dt: float):
+    def post_setup_scene(self, device: torch.device, action_dim, step_dt: float):
         self.device = device
-        self.single_action_space = single_action_space
+        # self.single_action_space = single_action_space
+        self.action_dim = action_dim
         self.step_dt = step_dt
 
         # Joint position command (deviation from default joint positions)
-        self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
-        self._previous_actions = torch.zeros(
-            self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device
-        )
+        # self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
+        # self._previous_actions = torch.zeros(
+        #     self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device
+        # )
+        self._actions = torch.zeros(self.num_envs, action_dim, device=self.device)
+        self._previous_actions = torch.zeros(self.num_envs, action_dim, device=self.device)
 
         # X/Y linear velocity and yaw angular velocity commands
         self._commands = torch.zeros(self.num_envs, 3, device=self.device)
@@ -85,6 +88,7 @@ class SingleAgent:
                     self._robot.data.joint_pos - self._robot.data.default_joint_pos,
                     self._robot.data.joint_vel,
                     height_data,
+                    self._actions,
                 )
                 if tensor is not None
             ],
@@ -179,9 +183,9 @@ class DoubleAnymalCFlatEnv(DirectRLEnv):
 
         # Joint position command (deviation from default joint positions)
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
-        self._previous_actions = torch.zeros(
-            self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device
-        )
+        # self._previous_actions = torch.zeros(
+        #     self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device
+        # )
 
         # X/Y linear velocity and yaw angular velocity commands
         self._commands = torch.zeros(self.num_envs, 3, device=self.device)
@@ -204,8 +208,8 @@ class DoubleAnymalCFlatEnv(DirectRLEnv):
         }
 
         # Get specific body indices
-        self._r1.post_setup_scene(self.device, self.single_action_space, self.step_dt)
-        self._r2.post_setup_scene(self.device, self.single_action_space, self.step_dt)
+        self._r1.post_setup_scene(self.device, self.cfg.action_space // 2, self.step_dt) # Ignore this red squiggly
+        self._r2.post_setup_scene(self.device, self.cfg.action_space // 2, self.step_dt) # Ignore this red squiggly
         # self._base_id, _ = self._contact_sensor.find_bodies("base")
         # self._feet_ids, _ = self._contact_sensor.find_bodies(".*FOOT")
         # self._undesired_contact_body_ids, _ = self._contact_sensor.find_bodies(".*THIGH")
@@ -240,9 +244,11 @@ class DoubleAnymalCFlatEnv(DirectRLEnv):
     def _get_observations(self) -> dict:
         obs1 = self._r1.get_observations()
         obs2 = self._r2.get_observations()
-        self._previous_actions = self._actions.clone()
+        # self._previous_actions = self._actions.clone()
 
         observations = {"policy": torch.cat((obs1["policy"], obs2["policy"]), dim=1)}
+        tmp = observations["policy"]
+        # print(f"Combined shape: {tmp.shape}")
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
